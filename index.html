@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Proximity Sensor Display</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      text-align: center;
+      background: #f0f2f5;
+      margin-top: 80px;
+    }
+    h1 {
+      color: #333;
+    }
+    #value {
+      font-size: 3em;
+      color: #0078D7;
+      margin: 20px;
+    }
+    button {
+      background-color: #0078D7;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1.1em;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #005ea0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Proximity Sensor Value</h1>
+  <div id="value">--</div>
+  <button id="connect">Connect Arduino</button>
+
+  <script>
+    const connectButton = document.getElementById('connect');
+    const valueDisplay = document.getElementById('value');
+    let port, reader;
+
+    connectButton.addEventListener('click', async () => {
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+        const decoder = new TextDecoderStream();
+        port.readable.pipeTo(decoder.writable);
+        reader = decoder.readable.getReader();
+
+        readSerial();
+      } catch (err) {
+        console.error('Connection error:', err);
+      }
+    });
+
+    async function readSerial() {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        if (value) {
+          const cleanValue = value.trim();
+          if (cleanValue) valueDisplay.textContent = cleanValue;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
