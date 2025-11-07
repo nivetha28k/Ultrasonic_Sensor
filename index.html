@@ -1,71 +1,53 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Proximity Sensor Display</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Motor RPM Monitor</title>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      text-align: center;
-      background: #f0f2f5;
-      margin-top: 80px;
-    }
-    h1 {
-      color: #333;
-    }
-    #value {
-      font-size: 3em;
-      color: #0078D7;
-      margin: 20px;
-    }
-    button {
-      background-color: #0078D7;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      font-size: 1.1em;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #005ea0;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial; text-align:center;
+           padding: 2rem; background:#f6f8fa; color:#111; }
+    .card { display:inline-block; padding:2rem 3rem; background:#fff; border-radius:12px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+    h1 { margin:0 0 0.5rem 0; font-size:1.25rem; color:#333; }
+    .rpm { font-size:3.5rem; font-weight:700; margin:0.5rem 0; color:#0b74de; }
+    .small { color:#666; font-size:0.95rem; margin-top:0.5rem; }
+    .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:#e74c3c; margin-left:8px; vertical-align:middle; }
   </style>
 </head>
 <body>
-  <h1>🔍 Proximity Sensor Value</h1>
-  <div id="value">--</div>
-  <button id="connect">Connect Arduino</button>
+  <div class="card">
+    <h1>Motor Speed <span id="statusDot" class="dot" title="connection status"></span></h1>
+    <div id="rpm" class="rpm">-- RPM</div>
+    <div class="small">Last updated: <span id="time">--:--:--</span></div>
+    <div class="small" style="margin-top:1rem">Endpoint polled: <code>/rpm</code> every 1s</div>
+  </div>
 
   <script>
-    const connectButton = document.getElementById('connect');
-    const valueDisplay = document.getElementById('value');
-    let port, reader;
+    const rpmEl = document.getElementById('rpm');
+    const timeEl = document.getElementById('time');
+    const statusDot = document.getElementById('statusDot');
 
-    connectButton.addEventListener('click', async () => {
+    async function fetchRpm() {
       try {
-        port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 9600 });
-        const decoder = new TextDecoderStream();
-        port.readable.pipeTo(decoder.writable);
-        reader = decoder.readable.getReader();
-
-        readSerial();
+        const res = await fetch('/rpm', { cache: 'no-store' });
+        if (!res.ok) throw new Error('Network response was not OK');
+        const data = await res.json(); // expects { rpm: 123.4 }
+        rpmEl.textContent = Math.round(data.rpm) + ' RPM';
+        const now = new Date();
+        timeEl.textContent = now.toLocaleTimeString();
+        statusDot.style.background = '#2ecc71'; // green = ok
       } catch (err) {
-        console.error('Connection error:', err);
-      }
-    });
-
-    async function readSerial() {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        if (value) {
-          const cleanValue = value.trim();
-          if (cleanValue) valueDisplay.textContent = cleanValue;
-        }
+        // show offline status
+        rpmEl.textContent = '-- RPM';
+        timeEl.textContent = '--:--:--';
+        statusDot.style.background = '#e74c3c'; // red = error
+        console.warn('fetchRpm error:', err);
       }
     }
+
+    // initial fetch and then every 1s
+    fetchRpm();
+    setInterval(fetchRpm, 1000);
   </script>
 </body>
 </html>
